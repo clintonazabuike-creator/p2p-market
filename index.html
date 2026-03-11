@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Merchant Pro | ClintonAzabuike-Creator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --accent: #00E676; --bg: #050505; --card: #121212; --text: #E0E0E0; --border: #222; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .logo { font-weight: 900; letter-spacing: 2px; color: var(--accent); }
+
+        .view { display: none; max-width: 500px; margin: 0 auto; animation: slideUp 0.4s ease; }
+        .active-view { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 16px; margin-bottom: 15px; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #000; border: 1px solid var(--border); color: #fff; border-radius: 8px; box-sizing: border-box; }
+        
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn-main { background: var(--accent); color: #000; }
+        .btn-ghost { background: transparent; border: 1px solid var(--border); color: #888; }
+
+        #qr-box { background: #fff; padding: 10px; width: fit-content; margin: 15px auto; border-radius: 8px; }
+        .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+        .img-preview { width: 100%; border-radius: 10px; margin-bottom: 15px; display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">P2P_PRO</div>
+    <div style="font-size: 10px; opacity: 0.5;" onclick="showView('home')">MAIN MENU</div>
+</header>
+
+<div id="view-home" class="view active-view">
+    <button class="btn btn-main" onclick="showView('sell')">+ Create New Listing</button>
+    <h3 style="margin-top: 30px; font-size: 12px; color: #666;">MERCHANT LEDGER (LOCAL)</h3>
+    <div id="ledger-list" class="card">
+        <p style="font-size: 12px; opacity: 0.5;">No saved listings found.</p>
+    </div>
+</div>
+
+<div id="view-sell" class="view">
+    <div class="card">
+        <h3>Product Details</h3>
+        <input type="text" id="p-title" placeholder="Item Name">
+        <input type="text" id="p-price" placeholder="Price (e.g. ₦25,000)">
+        <input type="text" id="p-img" placeholder="Image URL (Optional)">
+        <input type="text" id="p-phone" placeholder="WhatsApp Number (e.g. 23480...)">
+        <textarea id="p-desc" placeholder="Brief Description"></textarea>
+        <button class="btn btn-main" onclick="generateProtocol()">Generate Merchant Link</button>
+    </div>
+    
+    <div id="output" style="display:none; text-align: center;">
+        <div id="qr-box"></div>
+        <button class="btn btn-ghost" onclick="copyLink()">Copy Smart-Link</button>
+        <button class="btn btn-ghost" style="margin-top: 5px;" onclick="showView('home')">Back to Ledger</button>
+    </div>
+</div>
+
+<div id="view-buy" class="view">
+    <img id="buy-img" class="img-preview">
+    <div class="card">
+        <h1 id="buy-title" style="margin: 0;"></h1>
+        <div id="buy-price" style="font-size: 24px; color: var(--accent); font-weight: 800; margin: 10px 0;"></div>
+        <p id="buy-desc" style="opacity: 0.7;"></p>
+        <button class="btn btn-main" id="wa-btn">Buy via WhatsApp</button>
+    </div>
+</div>
+
+<script>
+    function showView(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active-view'));
+        document.getElementById('view-' + id).classList.add('active-view');
+        if(id === 'home') renderLedger();
+    }
+
+    function generateProtocol() {
+        const item = {
+            t: document.getElementById('p-title').value,
+            p: document.getElementById('p-price').value,
+            d: document.getElementById('p-desc').value,
+            i: document.getElementById('p-img').value,
+            w: document.getElementById('p-phone').value
+        };
+
+        const encoded = btoa(JSON.stringify(item));
+        const link = window.location.origin + window.location.pathname + "?item=" + encoded;
+
+        // Save to Local Ledger
+        let history = JSON.parse(localStorage.getItem('p2p_ledger')) || [];
+        history.unshift({ title: item.t, price: item.p, link: link });
+        localStorage.setItem('p2p_ledger', JSON.stringify(history.slice(0, 10))); // Keep last 10
+
+        // Show QR
+        document.getElementById('qr-box').innerHTML = "";
+        new QRCode(document.getElementById('qr-box'), { text: link, width: 200, height: 200 });
+        document.getElementById('output').style.display = 'block';
+        window.currentLink = link;
+    }
+
+    function renderLedger() {
+        const list = document.getElementById('ledger-list');
+        const history = JSON.parse(localStorage.getItem('p2p_ledger')) || [];
+        if(history.length === 0) return;
+
+        list.innerHTML = '';
+        history.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `<span>${item.title}</span><span style="color:var(--accent)">${item.price}</span>`;
+            div.onclick = () => { window.location.href = item.link; };
+            list.appendChild(div);
+        });
+    }
+
+    function copyLink() {
+        navigator.clipboard.writeText(window.currentLink);
+        alert("Link Copied to Clipboard");
+    }
+
+    window.onload = () => {
+        const params = new URLSearchParams(window.location.search);
+        const data = params.get('item');
+
+        if(data) {
+            const item = JSON.parse(atob(data));
+            document.getElementById('buy-title').innerText = item.t;
+            document.getElementById('buy-price').innerText = item.p;
+            document.getElementById('buy-desc').innerText = item.d;
+            
+            if(item.i) {
+                const img = document.getElementById('buy-img');
+                img.src = item.i;
+                img.style.display = 'block';
+            }
+
+            document.getElementById('wa-btn').onclick = () => {
+                const text = encodeURIComponent(`Hello, I'm interested in buying ${item.t} for ${item.p}. Is it available?`);
+                window.open(`https://wa.me/${item.w}?text=${text}`, '_blank');
+            };
+            showView('buy');
+        } else {
+            renderLedger();
+        }
+    };
+</script>
+
+</body>
+</html>
